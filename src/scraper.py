@@ -21,7 +21,6 @@ class nflScraper(object):
 
     def __init__(self, team='All'):
         self.team = team
-        self.candlestick_stats = None
 
     @staticmethod
     def format_df(df):
@@ -53,20 +52,51 @@ class nflScraper(object):
         '''
         Scraping Yards per Game (ypg) data for each team (both on offense and defense -- Opp YPG)
         '''
-        url = f"https://www.pro-football-reference.com/years/{season}/#team_stats"
-        dfs = pd.read_html(url)
+        off_url = f"https://widgets.sports-reference.com/wg.fcgi?css=1&site=pfr&url=%2Fyears%2F2021%2F&div=div_team_stats"
+        def_url = f"https://www.pro-football-reference.com/years/2021/opp.htm#team_stats"
+        dfs = pd.read_html(off_url, header=1, displayed_only=False)
 
-        df = pd.concat(dfs)
-        print(df)
+        odf = pd.concat(dfs)
+        ddf = pd.read_html(def_url, header=1)[0].drop([32,33,34], axis=0)
 
+        # Merging offensive and defensive YPG Dfs
+        # Grabbing a few columns then setting class attr
+        df = pd.merge(odf, ddf, how='left', on='Tm', suffixes=("", "_opp"))
+        df.set_index('Tm', inplace=True)
+        df = df[['Rk', 'G', 'PF', 'Yds',
+                 'Ply', 'Y/P', 'TO', 'FL',
+                 '1stD', 'Cmp', 'Att']]
+
+        self.ypg = df
 
     
-    def combine_data():
+    def combine_data(self, season=2021):
         '''Combines standings and ypg stats and formats'''
+        # Get standings and ypg dfs, then merge 'em
+        self.get_standings()
+        self.get_ypg()
+        df = pd.merge(self.standings, self.ypg, how='left', left_index=True, right_index=True)
+
+        df = df[['W', 'L', 'T', 'W-L%', 'PF_x', 'PA', 'PD', 'MoV', 'SoS', 'SRS', 'OSRS',
+                 'DSRS', 'Rk', 'G', 'Yds', 'Ply', 'Y/P', 'TO', 'FL', '1stD',
+                 'Cmp', 'Att']]
+        return df
+
 
 if __name__ == "__main__":    
     n = nflScraper()
-    n.get_standings(2021)
-    print('-----------------------------')
-    n.get_ypg(2021)
+    # n.get_standings(2021)
+    dfs = []
+    for s in range(2021, 2000, -1):
+        df = n.combine_data(season=s)
 
+        df['Season'] = [s for x in range(0, len(df))]
+        print(df.head())
+        dfs.append(df)
+        print('-----------------------------')
+
+    df = pd.concat(dfs)
+    print(df)
+
+    csv_path = os.path.join("..", "data", "nfl-stats-by-season.csv")
+    df.to_csv(csv_path)
