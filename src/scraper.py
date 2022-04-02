@@ -30,8 +30,9 @@ class nflScraper(object):
                      'AFC West', 'AFC South',
                      'AFC North', 'AFC East']
         # Dropping standings footnotes (*/+) from team names
-        df['Tm'] = df['Tm'].str.replace('*','')
-        df['Tm'] = df['Tm'].str.replace('+','')
+        df['Tm'] = df['Tm'].replace('*','')
+        df['Tm'] = df['Tm'].replace('+','')
+        df.dropna(axis=0, how='any', inplace=True)
 
         # Setting team name to df index
         df.set_index('Tm', inplace=True)
@@ -62,10 +63,11 @@ class nflScraper(object):
         # Merging offensive and defensive YPG Dfs
         # Grabbing a few columns then setting class attr
         df = pd.merge(odf, ddf, how='left', on='Tm', suffixes=("", "_opp"))
+        df.dropna(axis=0, how='any', inplace=True)
         df.set_index('Tm', inplace=True)
         df = df[['Rk', 'G', 'PF', 'Yds',
                  'Ply', 'Y/P', 'TO', 'FL',
-                 '1stD', 'Cmp', 'Att']]
+                 '1stD', 'Cmp', 'Att', 'Yds_opp']]
 
         self.ypg = df
 
@@ -73,13 +75,14 @@ class nflScraper(object):
     def combine_data(self, season=2021):
         '''Combines standings and ypg stats and formats'''
         # Get standings and ypg dfs, then merge 'em
-        self.get_standings()
-        self.get_ypg()
+        self.get_standings(season)
+        self.get_ypg(season)
+        print(self.ypg.columns)
         df = pd.merge(self.standings, self.ypg, how='left', left_index=True, right_index=True)
 
-        df = df[['W', 'L', 'T', 'W-L%', 'PF_x', 'PA', 'PD', 'MoV', 'SoS', 'SRS', 'OSRS',
+        df = df[['W', 'L', 'W-L%', 'PF_x', 'PA', 'PD', 'MoV', 'SoS', 'SRS', 'OSRS',
                  'DSRS', 'Rk', 'G', 'Yds', 'Ply', 'Y/P', 'TO', 'FL', '1stD',
-                 'Cmp', 'Att']]
+                 'Cmp', 'Att', 'Yds_opp']]
         return df
 
 
@@ -87,7 +90,8 @@ if __name__ == "__main__":
     n = nflScraper()
     # n.get_standings(2021)
     dfs = []
-    for s in range(2021, 2000, -1):
+    for s in range(2021, 2002, -1):
+        print(f"Season: {s}")
         df = n.combine_data(season=s)
 
         df['Season'] = [s for x in range(0, len(df))]
