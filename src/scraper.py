@@ -54,9 +54,11 @@ class nflScraper(object):
         Scraping Yards per Game (ypg) data for each team (both on offense and defense -- Opp YPG)
         '''
         url = f"https://www.pro-football-reference.com/years/{season}/#team_stats"
-        df = pd.read_html(url)
+        dfs = pd.read_html(url)
+
+        df = pd.concat(dfs)
         print(df)
-        
+
 
     
     def combine_data():
