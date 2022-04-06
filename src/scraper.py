@@ -22,23 +22,40 @@ class nflScraper(object):
     def __init__(self, team='All'):
         self.team = team
 
-    @staticmethod
-    def format_df(df):
+ 
+    def format_df(self, df):
         '''Remove division formatting from a PRF table df'''
         divisions = ['NFC West', 'NFC South',
                      'NFC North', 'NFC East',
                      'AFC West', 'AFC South',
                      'AFC North', 'AFC East']
         # Dropping standings footnotes (*/+) from team names
-        df['Tm'] = df['Tm'].replace('*','')
-        df['Tm'] = df['Tm'].replace('+','')
+        df['Tm'] = df['Tm'].str.replace('*','')
+        df['Tm'] = df['Tm'].str.replace('+','')
         df.dropna(axis=0, how='any', inplace=True)
+
+        df = self.fix_team_names(df)
 
         # Setting team name to df index
         df.set_index('Tm', inplace=True)
         df = df.drop(divisions, axis=0)
 
         return df
+
+    @staticmethod
+    def fix_team_names(df):
+        '''Some teams moved/re-named. Standardizing here to current NFL names.'''
+        team_name_map = {'San Diego Chargers': "Los Angeles Chargers",
+                         'Washington Redskins': "Washington Football Team",  # Dan Snyder you suck.
+                        #  'Washington Football Team': "Washignton Commanders",
+                         'Oakland Raiders': 'Las Vegas Raiders',  # R.I.P. John Madden
+                         'St. Louis Rams': "Los Angeles Rams"
+                        }
+        # for k, v in team_name_map.items():
+        df.replace(team_name_map, inplace=True)
+
+        return df
+
 
     def get_standings(self, season=2021):
         '''Scrapes PRF for NFL standings in a given season (int or str of year), '''
@@ -60,6 +77,9 @@ class nflScraper(object):
         odf = pd.concat(dfs)
         ddf = pd.read_html(def_url, header=1)[0].drop([32,33,34], axis=0)
 
+        odf = self.fix_team_names(odf)
+        ddf = self.fix_team_names(ddf)
+
         # Merging offensive and defensive YPG Dfs
         # Grabbing a few columns then setting class attr
         df = pd.merge(odf, ddf, how='left', on='Tm', suffixes=("", "_opp"))
@@ -71,7 +91,6 @@ class nflScraper(object):
 
         self.ypg = df
 
-    
     def combine_data(self, season=2021):
         '''Combines standings and ypg stats and formats'''
         # Get standings and ypg dfs, then merge 'em
